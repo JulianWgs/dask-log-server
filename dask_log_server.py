@@ -17,7 +17,8 @@ def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1):
                 if dask_client.status == "running":
                     now_time = time.time()
                     tasks = dask_client.get_task_stream(last_time, now_time)
-                    if len(tasks) >= n_tasks_min:
+                    if (len(tasks) >= n_tasks_min) or getattr(thread, "force_log", False) and (len(tasks) >= 1):
+                        thread.force_log = False
                         last_time = now_time
                         [task.pop("type") for task in tasks]
                         log_message = {
@@ -32,6 +33,7 @@ def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1):
                 time.sleep(time_interval)
         dask_client.logger = threading.Thread(target=logger)
         dask_client.logger.do_run = True
+        dask_client.logger.force_log = False
         dask_client.logger.start()
         return dask_client
     return dask_logger
