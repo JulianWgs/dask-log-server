@@ -6,7 +6,7 @@ import pytz
 import pathlib
 
 
-def dask_logger_config(time_interval=60, log_path="logs/"):
+def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1):
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
@@ -17,8 +17,8 @@ def dask_logger_config(time_interval=60, log_path="logs/"):
                 if dask_client.status == "running":
                     now_time = time.time()
                     tasks = dask_client.get_task_stream(last_time, now_time)
-                    last_time = now_time
-                    if tasks:
+                    if len(tasks) >= n_tasks_min:
+                        last_time = now_time
                         [task.pop("type") for task in tasks]
                         log_message = {
                             "datetime": str(datetime.datetime.now(pytz.utc)),
