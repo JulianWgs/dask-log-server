@@ -3,10 +3,13 @@ import time
 import datetime
 import json
 import pytz
+import pathlib
 
 
-def dask_logger_config(time_interval=60):
+def dask_logger_config(time_interval=60, log_path="logs/"):
     def dask_logger(dask_client):
+        pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
+
         def logger():
             thread = threading.currentThread()
             last_time = time.time()
@@ -23,7 +26,7 @@ def dask_logger_config(time_interval=60):
                             "client_id": str(id(dask_client)),
                             "tasks": tasks
                         }
-                        with open(f"logs/logger_{datetime.datetime.now()}.jsonl", "a") as file:
+                        with open(f"{log_path}/logger_{datetime.datetime.now()}.jsonl", "a") as file:
                             file.write(json.dumps(log_message))
                             file.write("\n")
                 time.sleep(time_interval)
