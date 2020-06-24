@@ -4,16 +4,28 @@ import datetime
 import json
 import pytz
 import pathlib
+import uuid
+import pickle
+import distributed
+
+
+def graph_logger_config(get, log_path):
+    def graph_logger(*args, **kwargs):
+        with open(f"{log_path}graphs_{uuid.uuid4().hex[:16]}.dsk", "wb") as file:
+            # TODO: Add case when only key word arguments are given
+            file.write(pickle.dumps(distributed.protocol.serialize(args[0])))
+        return get(*args, **kwargs)
+    return graph_logger
 
 
 def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemode="a"):
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
-        def logger():
+        def task_logger():
             thread = threading.currentThread()
             last_time = time.time()
-            datetime_stamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
+            unique_id = uuid.uuid4().hex[:16]
             while getattr(thread, "do_run", True):
                 if dask_client.status == "running":
                     now_time = time.time()
@@ -29,14 +41,17 @@ def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemo
                             "tasks": tasks
                         }
                         if filemode == "w":
-                            datetime_stamp = datetime.datetime.now().strftime("%Y-%m-%d-%H-%M-%S")
-                        with open(f"{log_path}/logger_{datetime_stamp}.jsonl", filemode) as file:
+                            unique_id = uuid.uuid4().hex[:16]
+                        with open(f"{log_path}tasks_{unique_id}.jsonl", filemode) as file:
                             file.write(json.dumps(log_message))
                             file.write("\n")
                 time.sleep(time_interval)
-        dask_client.logger = threading.Thread(target=logger)
-        dask_client.logger.do_run = True
-        dask_client.logger.force_log = False
-        dask_client.logger.start()
+        dask_client.task_logger = threading.Thread(target=task_logger)
+        dask_client.task_logger.do_run = True
+        dask_client.task_logger.force_log = False
+        dask_client.task_logger.start()
+
+        dask_client.get = graph_logger_config(dask_client.get, log_path=log_path)
+
         return dask_client
     return dask_logger
