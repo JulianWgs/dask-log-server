@@ -19,6 +19,55 @@ def graph_logger_config(get, log_path):
 
 
 def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemode="a"):
+    """
+    Configure the dask logger to your liking.
+
+    Parameters
+    ----------
+    time_interval: int
+        Time in seconds between writing tasks log. Note that tasks will only
+        be written if the number of tasks is above n_tasks_min. The default are 60 seconds.
+    log_path: str
+        Path to write the logging files. Both tasks and graphs are saved to the same folder. The default is "logs/".
+    n_tasks_min: int
+        Minimum number of tasks to write to the logging folder. The default is 1.
+    filemode: str
+        "a" (append): Append task logs to the same file in one session.
+        "w" (write): Write a new file for every log.
+        The default is "a".
+
+    Examples
+    --------
+    >>> import dask
+    >>> from dask import delayed
+    >>> from distributed import Client
+    >>> from dask_log_server import dask_logger_config
+    >>> logger = dask_logger_config(
+    ...     time_interval=1,
+    ...     log_path="logs/",
+    ...     n_tasks_min=1,
+    ...     filemode="w",
+    ... )
+    >>> client = Client(
+    ...     extensions=[logger]
+    ... )
+
+    >>> @delayed
+    ... def add(a, b):
+    ...     return a + b
+    ...
+    >>> @delayed
+    ... def inc(a):
+    ...     return a + 1
+    ...
+    >>> dask.compute(add(inc(2), 3))
+
+
+    Returns
+    -------
+    dask_logger
+
+    """
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
