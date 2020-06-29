@@ -6,6 +6,8 @@ import pytz
 import pathlib
 import uuid
 import pickle
+import base64
+
 import distributed
 
 
@@ -82,7 +84,8 @@ def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemo
                     if (len(tasks) >= n_tasks_min) or getattr(thread, "force_log", False) and (len(tasks) >= 1):
                         thread.force_log = False
                         last_time = now_time
-                        [task.pop("type") for task in tasks]
+                        # Make type json serializable
+                        [task.update({"type": base64.b64encode(task["type"]).decode()}) for task in tasks]
                         log_message = {
                             "datetime": str(datetime.datetime.now(pytz.utc)),
                             "status": dask_client.status,
