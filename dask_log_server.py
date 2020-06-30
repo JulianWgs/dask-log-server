@@ -20,13 +20,15 @@ def graph_logger_config(get, log_path):
     return graph_logger
 
 
-def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemode="a"):
+def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", n_tasks_min=1, filemode="a"):
     """
     Configure the dask logger to your liking.
 
     Parameters
     ----------
-    time_interval: int
+    info_interval: float
+        Time in seconds between writing info log.
+    time_interval: float
         Time in seconds between writing tasks log. Note that tasks will only
         be written if the number of tasks is above n_tasks_min. The default are 60 seconds.
     log_path: str
@@ -102,6 +104,27 @@ def dask_logger_config(time_interval=60, log_path="logs/", n_tasks_min=1, filemo
         dask_client.task_logger.do_run = True
         dask_client.task_logger.force_log = False
         dask_client.task_logger.start()
+
+        def info_logger():
+            thread = threading.currentThread()
+            unique_id = uuid.uuid4().hex[:16]
+            while getattr(thread, "do_run", True):
+                if dask_client.status == "running":
+                    log_message = {
+                        "datetime": str(datetime.datetime.now(pytz.utc)),
+                        "status": dask_client.status,
+                        "client_id": str(id(dask_client)),
+                        "tasks": dask_client.scheduler_info()
+                    }
+                    if filemode == "w":
+                        unique_id = uuid.uuid4().hex[:16]
+                    with open(f"{log_path}info_{unique_id}.jsonl", filemode) as file:
+                        file.write(json.dumps(log_message))
+                        file.write("\n")
+                time.sleep(info_interval)
+        dask_client.info_logger = threading.Thread(target=info_logger)
+        dask_client.info_logger.do_run = True
+        dask_client.info_logger.start()
 
         dask_client.get = graph_logger_config(dask_client.get, log_path=log_path)
 
