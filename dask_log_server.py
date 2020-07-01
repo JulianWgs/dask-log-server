@@ -13,7 +13,7 @@ import distributed
 
 def graph_logger_config(get, log_path):
     def graph_logger(*args, **kwargs):
-        with open(f"{log_path}graphs_{uuid.uuid4().hex[:16]}.dsk", "wb") as file:
+        with open(f"{log_path}graph_{uuid.uuid4().hex[:16]}.dsk", "wb") as file:
             # TODO: Add case when only key word arguments are given
             file.write(pickle.dumps(distributed.protocol.serialize(args[0])))
         return get(*args, **kwargs)
