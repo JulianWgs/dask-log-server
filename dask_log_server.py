@@ -75,6 +75,23 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
+        def versions_logger():
+            while dask_client.status != "running":
+                time.sleep(1)
+            log_message = {
+                "datetime": str(datetime.datetime.now(pytz.utc)),
+                "status": dask_client.status,
+                "client_id": str(id(dask_client)),
+                "versions": dask_client.get_versions()
+            }
+            unique_id = uuid.uuid4().hex[:16]
+            with open(f"{log_path}versions_{unique_id}.jsonl", "w") as file:
+                file.write(json.dumps(log_message))
+                file.write("\n")
+
+        dask_client.versions_logger = threading.Thread(target=versions_logger)
+        dask_client.versions_logger.start()
+
         def task_logger():
             thread = threading.currentThread()
             last_time = time.time()
