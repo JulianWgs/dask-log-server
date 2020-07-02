@@ -15,7 +15,8 @@ def graph_logger_config(get, log_path):
     def graph_logger(*args, **kwargs):
         with open(f"{log_path}graph_{uuid.uuid4().hex[:16]}.dsk", "wb") as file:
             # TODO: Add case when only key word arguments are given
-            file.write(pickle.dumps(distributed.protocol.serialize(args[0])))
+            dsk = _strip_instances(args[0])
+            file.write(pickle.dumps(distributed.protocol.serialize(dsk)))
         return get(*args, **kwargs)
     return graph_logger
 
@@ -131,7 +132,7 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
                         "datetime": str(datetime.datetime.now(pytz.utc)),
                         "status": dask_client.status,
                         "client_id": str(id(dask_client)),
-                        "tasks": dask_client.scheduler_info()
+                        "info": dask_client.scheduler_info()
                     }
                     if filemode == "w":
                         unique_id = uuid.uuid4().hex[:16]
@@ -147,3 +148,54 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
 
         return dask_client
     return dask_logger
+
+
+def _strip_instances(iterable, excluded_instances=None):
+    """
+
+    Parameters
+    ----------
+    iterable: list, dict, tuple
+        Iterable (in most cases a dask task graph).
+    excluded_instances:
+        Names of excluded types, which will not be stripped. The default is None.
+
+    Returns
+    -------
+    list, dict, tuple
+        Iterable only with built-in types.
+
+    """
+    if excluded_instances is None:
+        excluded_instances = list()
+
+    if isinstance(iterable, list):
+        stripped_iterable = list()
+        for item in iterable:
+            stripped_iterable.append(_strip_instances(item, excluded_instances))
+        return stripped_iterable
+
+    elif isinstance(iterable, tuple):
+        stripped_iterable = list()
+        for item in iterable:
+            stripped_iterable.append(_strip_instances(item, excluded_instances))
+        return tuple(stripped_iterable)
+
+    elif isinstance(iterable, dict):
+        stripped_iterable = dict()
+        for key, value in iterable.items():
+            stripped_iterable[key] = _strip_instances(value, excluded_instances)
+        return stripped_iterable
+    elif isinstance(iterable, (int, bool, float, str)) or iterable is None:
+        return iterable
+    else:
+        try:
+            full_name = iterable.__module__ + "." + iterable.__name__
+        except:
+            full_name = (
+                iterable.__class__.__module__ + "." + iterable.__class__.__name__
+            )
+        if full_name in excluded_instances:
+            return iterable
+        else:
+            return callable
