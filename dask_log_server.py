@@ -9,6 +9,8 @@ import pickle
 import base64
 
 import distributed
+import dask.dataframe as dd
+import dask.bag as db
 
 
 def graph_logger_config(get, log_path):
@@ -18,10 +20,13 @@ def graph_logger_config(get, log_path):
             dsk = _strip_instances(args[0])
             file.write(pickle.dumps(distributed.protocol.serialize(dsk)))
         return get(*args, **kwargs)
+
     return graph_logger
 
 
-def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", n_tasks_min=1, filemode="a"):
+def dask_logger_config(
+    time_interval=60.0, info_interval=1.0, log_path="logs/", n_tasks_min=1, filemode="a"
+):
     """
     Configure the dask logger to your liking.
 
@@ -73,6 +78,7 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
     dask_logger
 
     """
+
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
@@ -83,7 +89,7 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
                 "datetime": str(datetime.datetime.now(pytz.utc)),
                 "status": dask_client.status,
                 "client_id": str(id(dask_client)),
-                "versions": dask_client.get_versions()
+                "versions": dask_client.get_versions(),
             }
             unique_id = uuid.uuid4().hex[:16]
             with open(f"{log_path}versions_{unique_id}.jsonl", "w") as file:
@@ -101,23 +107,35 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
                 if dask_client.status == "running":
                     now_time = time.time()
                     tasks = dask_client.get_task_stream(last_time, now_time)
-                    if (len(tasks) >= n_tasks_min) or getattr(thread, "force_log", False) and (len(tasks) >= 1):
+                    if (
+                        (len(tasks) >= n_tasks_min)
+                        or getattr(thread, "force_log", False)
+                        and (len(tasks) >= 1)
+                    ):
                         thread.force_log = False
                         last_time = now_time
                         # Make type json serializable
-                        [task.update({"type": base64.b64encode(task["type"]).decode()}) for task in tasks]
+                        [
+                            task.update(
+                                {"type": base64.b64encode(task["type"]).decode()}
+                            )
+                            for task in tasks
+                        ]
                         log_message = {
                             "datetime": str(datetime.datetime.now(pytz.utc)),
                             "status": dask_client.status,
                             "client_id": str(id(dask_client)),
-                            "tasks": tasks
+                            "tasks": tasks,
                         }
                         if filemode == "w":
                             unique_id = uuid.uuid4().hex[:16]
-                        with open(f"{log_path}tasks_{unique_id}.jsonl", filemode) as file:
+                        with open(
+                            f"{log_path}tasks_{unique_id}.jsonl", filemode
+                        ) as file:
                             file.write(json.dumps(log_message))
                             file.write("\n")
                 time.sleep(time_interval)
+
         dask_client.task_logger = threading.Thread(target=task_logger)
         dask_client.task_logger.do_run = True
         dask_client.task_logger.force_log = False
@@ -132,7 +150,7 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
                         "datetime": str(datetime.datetime.now(pytz.utc)),
                         "status": dask_client.status,
                         "client_id": str(id(dask_client)),
-                        "info": dask_client.scheduler_info()
+                        "info": dask_client.scheduler_info(),
                     }
                     if filemode == "w":
                         unique_id = uuid.uuid4().hex[:16]
@@ -140,6 +158,7 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
                         file.write(json.dumps(log_message))
                         file.write("\n")
                 time.sleep(info_interval)
+
         dask_client.info_logger = threading.Thread(target=info_logger)
         dask_client.info_logger.do_run = True
         dask_client.info_logger.start()
@@ -147,7 +166,71 @@ def dask_logger_config(time_interval=60.0, info_interval=1.0, log_path="logs/", 
         dask_client.get = graph_logger_config(dask_client.get, log_path=log_path)
 
         return dask_client
+
     return dask_logger
+
+
+def read_tasks(urlpath):
+    """
+    Read tasks from one or multiple task log files.
+
+    """
+    df_tasks = (
+        db.read_text(urlpath)
+        .map(str.split, "\n")
+        .flatten()
+        .filter(lambda item: item != "")
+        .map(json.loads)
+        .map(_flatten_dict, "tasks", ["datetime", "client_id"])
+        .flatten()
+        .map(
+            _flatten_dict,
+            "startstops",
+            [
+                "worker",
+                "status",
+                "nbytes",
+                "thread",
+                "type",
+                "typename",
+                "key",
+                "datetime",
+                "client_id",
+            ],
+        )
+        .flatten()
+        .to_dataframe(
+            {
+                "action": "string",
+                "start": "int64",
+                "stop": "int64",
+                "worker": "string",
+                "status": "string",
+                "nbytes": "int64",
+                "thread": "int64",
+                "type": "string",
+                "typename": "string",
+                "key": "string",
+                "datetime": "string",
+                "client_id": "int64",
+            }
+        )
+    )
+
+    for column_name in ["start", "stop"]:
+        df_tasks[column_name] = dd.to_datetime(df_tasks[column_name], unit="s")
+    df_tasks["datetime"] = dd.to_datetime(df_tasks["datetime"], utc=True)
+    for column_name in ["action", "status"]:
+        df_tasks[column_name] = df_tasks[column_name].astype("category")
+
+    return df_tasks
+
+
+def _flatten_dict(nested_dict, list_key, single_keys):
+    list_of_dict = nested_dict[list_key]
+    column_data = {single_key: nested_dict[single_key] for single_key in single_keys}
+    [dict_.update(column_data) for dict_ in list_of_dict]
+    return list_of_dict
 
 
 def _strip_instances(iterable, excluded_instances=None):
