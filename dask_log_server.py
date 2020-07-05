@@ -7,8 +7,12 @@ import pathlib
 import uuid
 import pickle
 import base64
+import random
 
+import pandas as pd
 import distributed
+import dask
+import dask.dot
 import dask.dataframe as dd
 import dask.bag as db
 
@@ -282,3 +286,83 @@ def _strip_instances(iterable, excluded_instances=None):
             return iterable
         else:
             return callable
+
+
+def visualize(dsk, df_tasks, label=None, color=None, current_time=0):
+    """
+    Draw a dask graph enhanced by additional information.
+
+    Parameters
+    ----------
+    dsk: dict
+        Dask task graph. Should be able to be plotted by dask.visualize.
+    df_tasks: pd.DataFrame
+        DataFrame of the dask task stream data. "key" column is mandatory to
+        assign a row of the DataFrame to a node in the graph.
+    label: str
+        Column name of df_tasks DataFrame which contains the value for the
+        node label.
+    color: str
+        Column name of df_tasks DataFrame which contains color information of
+        node fill color.
+
+        If the values are numerical the node is filled with grayscale tones.
+        The label font color is adjusted to be always readable.
+
+        If the values are strings each unique value is assigned a different
+        color.
+
+        If the value is "progress" each started node is filled with red and
+        each finished is filled with blue. To set the current time use the
+        argument "current_time". The option needs the columns "start_delta"
+        and "stop_delta" in the df_tasks DataFrame containing the seconds
+        passed since the start of the graph execution.
+    current_time: float
+        If color is set to "progress" this sets the current time influencing
+        the fill color of the nodes.
+    """
+    if color == "progress":
+        color_type = "progress"
+    elif pd.api.types.is_numeric_dtype(df_tasks[color]):
+        color_type = "float"
+        max_duration = df_tasks[color].max()
+    elif pd.api.types.is_string_dtype(df_tasks[color]):
+        color_type = "category"
+        random.seed(10)
+        unique_colors = {
+            value: f"#{random.randint(0, 0xFFFFFF):06X}"
+            for value in df_tasks[color].unique()
+        }
+
+    attributes = {"func": dict(), "data": dict()}
+    for index, df_single_task in df_tasks.iterrows():
+        if df_single_task["action"] == "compute":
+            attribute_name = "func"
+        else:
+            attribute_name = "data"
+        key = df_single_task["key"]
+        attributes[attribute_name][key] = {}
+        if label is not None:
+            attributes[attribute_name][key]["label"] = str(df_single_task[label])
+        if color == "progress":
+            if df_single_task["stop_delta"] < current_time:
+                attributes[attribute_name][key]["style"] = "filled"
+                attributes[attribute_name][key]["fillcolor"] = "blue"
+            elif df_single_task["start_delta"] < current_time:
+                attributes[attribute_name][key]["style"] = "filled"
+                attributes[attribute_name][key]["fillcolor"] = "red"
+        elif color_type == "float":
+            attributes[attribute_name][key]["style"] = "filled"
+            grayscale = 100 - int(df_single_task[color] / max_duration * 100)
+            attributes[attribute_name][key]["fillcolor"] = f"gray{grayscale}"
+            if grayscale < 20:
+                attributes[attribute_name][key]["fontcolor"] = "white"
+        elif color_type == "category":
+            attributes[attribute_name][key]["style"] = "filled"
+            attributes[attribute_name][key]["fillcolor"] = unique_colors[
+                df_single_task[color]
+            ]
+
+    return dask.dot.dot_graph(
+        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
+    )
