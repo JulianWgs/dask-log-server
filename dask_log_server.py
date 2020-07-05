@@ -202,8 +202,8 @@ def read_tasks(urlpath):
         .to_dataframe(
             {
                 "action": "string",
-                "start": "int64",
-                "stop": "int64",
+                "start": "float64",
+                "stop": "float64",
                 "worker": "string",
                 "status": "string",
                 "nbytes": "int64",
