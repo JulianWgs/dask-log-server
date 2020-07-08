@@ -47,6 +47,14 @@ app.layout = html.Div(
                 ),
             ]
         ),
+        dcc.Dropdown(
+            id="color",
+            options=[
+                {"label": item, "value": item}
+                for item in ["worker", "duration", "nbytes", "typename"]
+            ],
+            value="worker",
+        ),
         html.Div([html.Img(id="graph", height=300),], className="row"),
         html.Div(
             [
@@ -93,16 +101,19 @@ app.layout = html.Div(
 
 @app.callback(
     Output(component_id="graph", component_property="src"),
-    [Input(component_id="graph-table", component_property="selected_rows")],
+    [
+        Input(component_id="graph-table", component_property="selected_rows"),
+        Input(component_id="color", component_property="value"),
+    ],
 )
-def load_graph(selected_rows):
+def load_graph(selected_rows, color):
     if not selected_rows:
         return ""
     graph_id = df.iloc[selected_rows].index[0]
     filename = os.path.join(log_path, "graph_" + graph_id + ".dsk")
     with open(filename, "rb") as file:
         dsk = distributed.protocol.deserialize(*pickle.load(file))
-    data = dask_log_server.visualize(dsk, df_tasks).pipe(format="png")
+    data = dask_log_server.visualize(dsk, df_tasks, color=color).pipe(format="png")
     encoded_image = base64.b64encode(data).decode()
     return "data:image/png;base64,{}".format(encoded_image)
 
@@ -111,7 +122,7 @@ def load_graph(selected_rows):
     Output(component_id="tasks-table", component_property="data"),
     [Input(component_id="graph-table", component_property="selected_rows")],
 )
-def task_of_graph(selected_rows):
+def tasks_of_graph(selected_rows):
     if not selected_rows:
         return list()
     graph_id = df.iloc[selected_rows].index[0]
