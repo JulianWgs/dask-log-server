@@ -326,7 +326,7 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
         color_type = "progress"
     elif pd.api.types.is_numeric_dtype(df_tasks[color]):
         color_type = "float"
-        max_duration = df_tasks[color].max()
+        max_color_value = df_tasks[color].max()
     elif pd.api.types.is_string_dtype(df_tasks[color]):
         color_type = "category"
         random.seed(10)
@@ -354,7 +354,7 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
                 attributes[attribute_name][key]["fillcolor"] = "red"
         elif color_type == "float":
             attributes[attribute_name][key]["style"] = "filled"
-            grayscale = 100 - int(df_single_task[color] / max_duration * 100)
+            grayscale = 100 - int(df_single_task[color] / max_color_value * 100)
             attributes[attribute_name][key]["fillcolor"] = f"gray{grayscale}"
             if grayscale < 20:
                 attributes[attribute_name][key]["fontcolor"] = "white"
