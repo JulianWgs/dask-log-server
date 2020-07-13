@@ -205,17 +205,17 @@ def read_tasks(urlpath):
         .flatten()
         .to_dataframe(
             {
-                "action": "string",
+                "action": str,
                 "start": "float64",
                 "stop": "float64",
-                "worker": "string",
-                "status": "string",
+                "worker": str,
+                "status": str,
                 "nbytes": "int64",
                 "thread": "int64",
-                "type": "string",
-                "typename": "string",
-                "key": "string",
-                "datetime": "string",
+                "type": str,
+                "typename": str,
+                "key": object,
+                "datetime": str,
                 "client_id": "int64",
             }
         )
