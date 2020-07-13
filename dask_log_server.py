@@ -233,6 +233,22 @@ def read_tasks_raw(log_path):
     return df_tasks
 
 
+def read_graphs(df_tasks):
+    df_tasks_group = df_tasks.groupby("id")
+    df_starts = df_tasks_group["start"].min()
+    df_stops = df_tasks_group["stop"].max()
+    df_graph = dd.concat([
+        df_starts,
+        df_stops,
+        (df_stops - df_starts).rename("duration"),
+        df_tasks_group["worker"].nunique().rename("n_workers"),
+        df_tasks_group["status"].count().rename("n_tasks"),
+        df_tasks_group["client_id"].min(),
+    ], axis=1, ignore_unknown_divisions=True)
+
+    return df_graph
+
+
 def read_tasks(log_path):
     df_tasks = read_tasks_raw(log_path)
     unique_graph_ids = _get_unique_graph_ids(log_path + "/graph_*.dsk")
