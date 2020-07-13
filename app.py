@@ -24,6 +24,32 @@ app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 df = pd.read_parquet(os.path.join(log_path, "graph.parquet"))
 df_tasks = pd.read_parquet(os.path.join(log_path, "tasks.parquet"))
 
+options = [
+    {"label": item, "value": item}
+    for item in ["worker", "duration", "nbytes", "typename"]
+]
+drop_cols = ["status", "thread", "type", "datetime", "client_id", "id"]
+task_columns = [
+    {"name": item, "id": item}
+    for item in [
+        "action",
+        "start",
+        "stop",
+        "worker",
+        "status",
+        "nbytes",
+        "thread",
+        "type",
+        "typename",
+        "key",
+        "datetime",
+        "client_id",
+        "id",
+        "duration",
+    ]
+    if item not in drop_cols
+]
+
 app.layout = html.Div(
     [
         html.Div(
@@ -47,44 +73,20 @@ app.layout = html.Div(
                 ),
             ]
         ),
-        dcc.Dropdown(
-            id="color",
-            options=[
-                {"label": item, "value": item}
-                for item in ["worker", "duration", "nbytes", "typename"]
-            ],
-            value="worker",
-        ),
+        dcc.Dropdown(id="color", options=options,),
+        dcc.Dropdown(id="label", options=options,),
         html.Div([html.Img(id="graph", height=300),], className="row"),
         html.Div(
             [
                 dash_table.DataTable(
                     id="tasks-table",
-                    columns=[
-                        {"name": item, "id": item}
-                        for item in [
-                            "action",
-                            "start",
-                            "stop",
-                            "worker",
-                            "status",
-                            "nbytes",
-                            "thread",
-                            "type",
-                            "typename",
-                            "key",
-                            "datetime",
-                            "client_id",
-                            "id",
-                            "duration",
-                        ]
-                    ],
+                    columns=task_columns,
                     editable=True,
                     filter_action="native",
                     sort_action="native",
                     sort_mode="multi",
                     column_selectable=False,
-                    row_selectable="single",
+                    row_selectable=False,
                     row_deletable=False,
                     selected_columns=[],
                     selected_rows=[],
@@ -104,16 +106,23 @@ app.layout = html.Div(
     [
         Input(component_id="graph-table", component_property="selected_rows"),
         Input(component_id="color", component_property="value"),
+        Input(component_id="label", component_property="value"),
     ],
 )
-def load_graph(selected_rows, color):
+def load_graph(selected_rows, color, label):
     if not selected_rows:
         return ""
+    if color is None:
+        color = ""
+    if label is None:
+        label = ""
     graph_id = df.iloc[selected_rows].index[0]
     filename = os.path.join(log_path, "graph_" + graph_id + ".dsk")
     with open(filename, "rb") as file:
         dsk = distributed.protocol.deserialize(*pickle.load(file))
-    data = dask_log_server.visualize(dsk, df_tasks, color=color).pipe(format="png")
+    data = dask_log_server.visualize(dsk, df_tasks, color=color, label=label).pipe(
+        format="png"
+    )
     encoded_image = base64.b64encode(data).decode()
     return "data:image/png;base64,{}".format(encoded_image)
 
@@ -126,7 +135,9 @@ def tasks_of_graph(selected_rows):
     if not selected_rows:
         return list()
     graph_id = df.iloc[selected_rows].index[0]
-    return df_tasks[df_tasks["id"] == graph_id].to_dict("records")
+    return (
+        df_tasks[df_tasks["id"] == graph_id].drop(columns=drop_cols).to_dict("records")
+    )
 
 
 if __name__ == "__main__":
