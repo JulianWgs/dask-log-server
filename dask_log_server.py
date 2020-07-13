@@ -321,6 +321,7 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
         If color is set to "progress" this sets the current time influencing
         the fill color of the nodes.
     """
+    df_tasks = df_tasks[df_tasks["key"].isin(dsk.keys())]
     if color == "progress" or color == "":
         color_type = "progress"
     elif pd.api.types.is_numeric_dtype(df_tasks[color]):
