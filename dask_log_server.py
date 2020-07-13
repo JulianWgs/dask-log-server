@@ -9,6 +9,8 @@ import pickle
 import base64
 import random
 import ast
+import glob
+import filecmp
 
 import pandas as pd
 import distributed
@@ -175,13 +177,13 @@ def dask_logger_config(
     return dask_logger
 
 
-def read_tasks(urlpath):
+def read_tasks_raw(log_path):
     """
     Read tasks from one or multiple task log files.
 
     """
     df_tasks = (
-        db.read_text(urlpath)
+        db.read_text(log_path + "/task*.jsonl")
         .map(str.split, "\n")
         .flatten()
         .filter(lambda item: item != "")
@@ -229,6 +231,66 @@ def read_tasks(urlpath):
         df_tasks[column_name] = df_tasks[column_name].astype("category")
 
     return df_tasks
+
+
+def read_tasks(log_path):
+    df_tasks = read_tasks_raw(log_path)
+    unique_graph_ids = _get_unique_graph_ids(log_path + "/graph_*.dsk")
+    key_id_mapping = _get_key_id_mapping(log_path, unique_graph_ids)
+
+    df_tasks["id"] = df_tasks["key"].map(
+        {str(key): value for key, value in key_id_mapping.items()}
+    )
+    # df_tasks = df_tasks.merge(df_versions[["client_id", "versions"]], on="client_id")
+    df_tasks["duration"] = (df_tasks["stop"] - df_tasks["start"]).dt.total_seconds()
+
+    return df_tasks
+
+
+def _get_unique_graph_ids(path):
+    paths = glob.glob(path)
+    paths_pool = set(paths)
+    paths_unique_count = dict()
+    while len(paths_pool):
+        path = paths_pool.pop()
+        paths_unique_count[path] = 1
+        delete_set = set()
+        for other_path in paths_pool:
+            if filecmp.cmp(path, other_path):
+                delete_set.add(other_path)
+                paths_unique_count[path] += 1
+        paths_pool -= delete_set
+    return {
+        path.split("_")[-1].split(".")[-2]: count
+        for path, count in paths_unique_count.items()
+    }
+
+
+def _get_key_id_mapping(log_path, unique_graph_ids):
+    key_to_id = (
+        db.from_sequence(unique_graph_ids)
+        .map(
+            lambda graph_id: (
+                graph_id,
+                tuple(
+                    distributed.protocol.deserialize(
+                        *pickle.load(
+                            open(log_path + "/graph_" + graph_id + ".dsk", "rb")
+                        )
+                    ).keys()
+                ),
+            )
+        )
+        .map(_flatten_tuple, 1, [0])
+        .flatten()
+    )
+    return dict(key_to_id.compute())
+
+
+def _flatten_tuple(nested_tuple, tuple_index, single_indices):
+    entries = list(nested_tuple[tuple_index])
+    single_data = [nested_tuple[single_index] for single_index in single_indices]
+    return [[entry] + single_data for entry in entries]
 
 
 def _to_tuple(string):
