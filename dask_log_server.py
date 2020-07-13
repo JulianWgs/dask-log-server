@@ -8,6 +8,7 @@ import uuid
 import pickle
 import base64
 import random
+import ast
 
 import pandas as pd
 import distributed
@@ -230,6 +231,13 @@ def read_tasks(urlpath):
     return df_tasks
 
 
+def _to_tuple(string):
+    try:
+        return ast.literal_eval(string)
+    except:
+        return string
+
+
 def _flatten_dict(nested_dict, list_key, single_keys):
     list_of_dict = nested_dict[list_key]
     column_data = {single_key: nested_dict[single_key] for single_key in single_keys}
@@ -321,7 +329,8 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
         If color is set to "progress" this sets the current time influencing
         the fill color of the nodes.
     """
-    df_tasks = df_tasks[df_tasks["key"].isin(dsk.keys())]
+    # Filter unnecessary tasks, dtype of key is str
+    df_tasks = df_tasks[df_tasks["key"].isin([str(key) for key in dsk.keys()])]
     if color == "progress" or color == "":
         color_type = "progress"
     elif pd.api.types.is_numeric_dtype(df_tasks[color]):
@@ -364,6 +373,8 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
                 df_single_task[color]
             ]
 
-    return dask.dot.dot_graph(
+    attributes["data"] = {_to_tuple(key): value for key, value in attributes["data"].items()}
+    attributes["func"] = {_to_tuple(key): value for key, value in attributes["func"].items()}
+    return dask.dot.to_graphviz(
         dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
     )
