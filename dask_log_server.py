@@ -288,7 +288,7 @@ def _strip_instances(iterable, excluded_instances=None):
             return callable
 
 
-def visualize(dsk, df_tasks, label=None, color=None, current_time=0):
+def visualize(dsk, df_tasks, label="", color="", current_time=0):
     """
     Draw a dask graph enhanced by additional information.
 
@@ -321,7 +321,7 @@ def visualize(dsk, df_tasks, label=None, color=None, current_time=0):
         If color is set to "progress" this sets the current time influencing
         the fill color of the nodes.
     """
-    if color == "progress":
+    if color == "progress" or color == "":
         color_type = "progress"
     elif pd.api.types.is_numeric_dtype(df_tasks[color]):
         color_type = "float"
@@ -342,7 +342,7 @@ def visualize(dsk, df_tasks, label=None, color=None, current_time=0):
             attribute_name = "data"
         key = df_single_task["key"]
         attributes[attribute_name][key] = {}
-        if label is not None:
+        if label != "":
             attributes[attribute_name][key]["label"] = str(df_single_task[label])
         if color == "progress":
             if df_single_task["stop_delta"] < current_time:
