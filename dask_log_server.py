@@ -384,7 +384,9 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
         Dask task graph. Should be able to be plotted by dask.visualize.
     df_tasks: pd.DataFrame
         DataFrame of the dask task stream data. "key" column is mandatory to
-        assign a row of the DataFrame to a node in the graph.
+        assign a row of the DataFrame to a node in the graph. "key" column
+        must be of type string even when key is a tuple, because otherwise
+        the type is not compatible with formats like parquet.
     label: str
         Column name of df_tasks DataFrame which contains the value for the
         node label.
@@ -406,6 +408,19 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
     current_time: float
         If color is set to "progress" this sets the current time influencing
         the fill color of the nodes.
+    """
+    attributes = _get_dsk_attributes(
+        dsk, df_tasks, label=label, color=color, current_time=current_time
+    )
+
+    return dask.visualize(
+        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
+    )
+
+
+def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0):
+    """
+    See visualize for doc string.
     """
     # Filter unnecessary tasks, dtype of key is str
     df_tasks = df_tasks[df_tasks["key"].isin([str(key) for key in dsk.keys()])]
@@ -451,8 +466,10 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
                 df_single_task[color]
             ]
 
-    attributes["data"] = {_to_tuple(key): value for key, value in attributes["data"].items()}
-    attributes["func"] = {_to_tuple(key): value for key, value in attributes["func"].items()}
-    return dask.dot.to_graphviz(
-        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
-    )
+    attributes["data"] = {
+        _to_tuple(key): value for key, value in attributes["data"].items()
+    }
+    attributes["func"] = {
+        _to_tuple(key): value for key, value in attributes["func"].items()
+    }
+    return attributes
