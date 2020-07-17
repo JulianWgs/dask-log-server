@@ -34,7 +34,12 @@ def graph_logger_config(get, log_path):
 
 
 def dask_logger_config(
-    time_interval=60.0, info_interval=1.0, log_path="logs/", n_tasks_min=1, filemode="a"
+    time_interval=60.0,
+    info_interval=1.0,
+    log_path="logs/",
+    n_tasks_min=1,
+    filemode="a",
+    additional_info=None,
 ):
     """
     Configure the dask logger to your liking.
@@ -54,6 +59,8 @@ def dask_logger_config(
         "a" (append): Append task logs to the same file in one session.
         "w" (write): Write a new file for every log.
         The default is "a".
+    additional_info: json serializable object
+        Additional information which is written into the version log with the key "additional_info".
 
     Examples
     --------
@@ -66,6 +73,7 @@ def dask_logger_config(
     ...     log_path="logs/",
     ...     n_tasks_min=1,
     ...     filemode="w",
+    ...     additional_info={"instance_type": "c5.large"},
     ... )
     >>> client = Client(
     ...     extensions=[logger]
@@ -101,6 +109,8 @@ def dask_logger_config(
                 "versions": dask_client.get_versions(),
             }
             unique_id = uuid.uuid4().hex[:16]
+            if additional_info is not None:
+                log_message["versions"]["additional_info"] = additional_info
             with open(f"{log_path}versions_{unique_id}.json", "w") as file:
                 file.write(json.dumps(log_message))
                 file.write("\n")
