@@ -2,14 +2,16 @@ import os
 import base64
 import pickle
 import optparse
-import pandas as pd
-import distributed
 
 import dash
 import dash_core_components as dcc
 import dash_html_components as html
 from dash.dependencies import Input, Output
 import dash_table
+
+import pandas as pd
+import distributed
+import dask
 
 import dask_log_server
 
@@ -120,9 +122,12 @@ def load_graph(selected_rows, color, label):
     filename = os.path.join(log_path, "graph_" + graph_id + ".dsk")
     with open(filename, "rb") as file:
         dsk = distributed.protocol.deserialize(*pickle.load(file))
-    data = dask_log_server.visualize(dsk, df_tasks, color=color, label=label).pipe(
-        format="png"
+    attributes = dask_log_server._get_dsk_attributes(
+        dsk, df_tasks, label=label, color=color,
     )
+    data = dask.dot.to_graphviz(
+        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
+    ).pipe(format="png")
     encoded_image = base64.b64encode(data).decode()
     return "data:image/png;base64,{}".format(encoded_image)
 
