@@ -75,8 +75,27 @@ app.layout = html.Div(
                 ),
             ]
         ),
-        dcc.Dropdown(id="color", options=options,),
-        dcc.Dropdown(id="label", options=options,),
+        html.Div(
+            [
+                html.Div(
+                    [
+                        html.Label(
+                            ["Node Color", dcc.Dropdown(id="color", options=options,)]
+                        ),
+                    ],
+                    className="three columns",
+                ),
+                html.Div(
+                    [
+                        html.Label(
+                            ["Node Label", dcc.Dropdown(id="label", options=options,)]
+                        ),
+                    ],
+                    className="three columns",
+                ),
+            ],
+            className="row",
+        ),
         html.Div([html.Img(id="graph", height=300),], className="row"),
         html.Div(
             [
