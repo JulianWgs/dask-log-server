@@ -100,7 +100,7 @@ def dask_logger_config(
                 "versions": dask_client.get_versions(),
             }
             unique_id = uuid.uuid4().hex[:16]
-            with open(f"{log_path}versions_{unique_id}.jsonl", "w") as file:
+            with open(f"{log_path}versions_{unique_id}.json", "w") as file:
                 file.write(json.dumps(log_message))
                 file.write("\n")
 
