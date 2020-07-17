@@ -11,6 +11,7 @@ import random
 import ast
 import glob
 import filecmp
+import functools
 
 import numpy as np
 import pandas as pd
@@ -277,6 +278,55 @@ def read_tasks(log_path):
     df_tasks["duration"] = (df_tasks["stop"] - df_tasks["start"]).dt.total_seconds()
 
     return df_tasks
+
+
+def read_versions(log_path, list_of_keys=None):
+    """
+    Read version information from log path.
+
+    Parameters
+    ----------
+    log_path: str
+        Path to read the logging files.
+    list_of_keys: list of list of int,str
+        Version information is nested. Provide a list of list of the keys to retrieve this information.
+
+    Examples
+    --------
+    >>> # Logs must already exist for this to work
+    >>> import dask_log_server
+    >>> list_of_keys = [["scheduler", "host", "OS"], ["scheduler", "packages", "dask"], ["scheduler", "packages", "python"]]
+    >>> dask_log_server.read_versions("logs", list_of_keys).compute()
+                              datetime   status        client_id                                           versions scheduler-host-OS scheduler-packages-dask scheduler-packages-python
+    0 2020-07-13 15:13:55.322711+00:00  running  139859169225248  {'scheduler': {'host': {'python': '3.6.9.final...             Linux                  2.20.0             3.6.9.final.0
+    0 2020-07-08 17:18:28.451828+00:00  running  140103390383688  {'scheduler': {'host': {'python': '3.6.9.final...             Linux                  2.20.0             3.6.9.final.0
+
+    Returns
+    -------
+    pandas.DataFrame
+
+    """
+    if list_of_keys is None:
+        list_of_keys = []
+    df_versions = dd.read_json(log_path + "/version*.json")
+    for keys in list_of_keys:
+        column_name = "-".join(keys)
+        df_versions[column_name] = df_versions["versions"].map(
+            functools.partial(_get_nested, keys=keys), meta=(column_name, str)
+        )
+    return df_versions
+
+
+def _get_nested(dict_, keys):
+    """
+    Nested get method for dictionaries (and lists, tuples).
+    """
+    try:
+        for key in keys:
+            dict_ = dict_[key]
+    except (KeyError, IndexError):
+        return None
+    return dict_
 
 
 def _get_unique_graph_ids(path):
