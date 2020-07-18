@@ -112,25 +112,9 @@ def dask_logger_config(
         dask_client.task_logger.force_log = False
         dask_client.task_logger.start()
 
-        def info_logger():
-            thread = threading.currentThread()
-            unique_id = uuid.uuid4().hex[:16]
-            while getattr(thread, "do_run", True):
-                if dask_client.status == "running":
-                    log_message = {
-                        "datetime": str(datetime.datetime.now(pytz.utc)),
-                        "status": dask_client.status,
-                        "client_id": str(id(dask_client)),
-                        "info": dask_client.scheduler_info(),
-                    }
-                    if filemode == "w":
-                        unique_id = uuid.uuid4().hex[:16]
-                    with open(f"{log_path}info_{unique_id}.jsonl", filemode) as file:
-                        file.write(json.dumps(log_message))
-                        file.write("\n")
-                time.sleep(info_interval)
-
-        dask_client.info_logger = threading.Thread(target=info_logger)
+        dask_client.info_logger = threading.Thread(
+            target=info_logger, args=(dask_client, log_path, info_interval, filemode)
+        )
         dask_client.info_logger.do_run = True
         dask_client.info_logger.start()
 
@@ -189,6 +173,25 @@ def task_logger(dask_client, log_path, time_interval, n_tasks_min, filemode):
                     file.write(json.dumps(log_message))
                     file.write("\n")
         time.sleep(time_interval)
+
+
+def info_logger(dask_client, log_path, info_interval, filemode):
+    thread = threading.currentThread()
+    unique_id = uuid.uuid4().hex[:16]
+    while getattr(thread, "do_run", True):
+        if dask_client.status == "running":
+            log_message = {
+                "datetime": str(datetime.datetime.now(pytz.utc)),
+                "status": dask_client.status,
+                "client_id": str(id(dask_client)),
+                "info": dask_client.scheduler_info(),
+            }
+            if filemode == "w":
+                unique_id = uuid.uuid4().hex[:16]
+            with open(f"{log_path}info_{unique_id}.jsonl", filemode) as file:
+                file.write(json.dumps(log_message))
+                file.write("\n")
+        time.sleep(info_interval)
 
 
 def read_tasks_raw(log_path):
