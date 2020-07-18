@@ -104,44 +104,10 @@ def dask_logger_config(
         )
         dask_client.versions_logger.start()
 
-        def task_logger():
-            thread = threading.currentThread()
-            last_time = time.time()
-            unique_id = uuid.uuid4().hex[:16]
-            while getattr(thread, "do_run", True):
-                if dask_client.status == "running":
-                    now_time = time.time()
-                    tasks = dask_client.get_task_stream(last_time, now_time)
-                    if (
-                        (len(tasks) >= n_tasks_min)
-                        or getattr(thread, "force_log", False)
-                        and (len(tasks) >= 1)
-                    ):
-                        thread.force_log = False
-                        last_time = now_time
-                        # Make type json serializable
-                        [
-                            task.update(
-                                {"type": base64.b64encode(task["type"]).decode()}
-                            )
-                            for task in tasks
-                        ]
-                        log_message = {
-                            "datetime": str(datetime.datetime.now(pytz.utc)),
-                            "status": dask_client.status,
-                            "client_id": str(id(dask_client)),
-                            "tasks": tasks,
-                        }
-                        if filemode == "w":
-                            unique_id = uuid.uuid4().hex[:16]
-                        with open(
-                            f"{log_path}tasks_{unique_id}.jsonl", filemode
-                        ) as file:
-                            file.write(json.dumps(log_message))
-                            file.write("\n")
-                time.sleep(time_interval)
-
-        dask_client.task_logger = threading.Thread(target=task_logger)
+        dask_client.task_logger = threading.Thread(
+            target=task_logger,
+            args=(dask_client, log_path, time_interval, n_tasks_min, filemode),
+        )
         dask_client.task_logger.do_run = True
         dask_client.task_logger.force_log = False
         dask_client.task_logger.start()
@@ -189,6 +155,40 @@ def versions_logger(dask_client, log_path, additional_info=None):
         log_message["versions"]["additional_info"] = additional_info
     with open(f"{log_path}versions_{unique_id}.json", "w") as file:
         json.dump(log_message, file)
+
+
+def task_logger(dask_client, log_path, time_interval, n_tasks_min, filemode):
+    thread = threading.currentThread()
+    last_time = time.time()
+    unique_id = uuid.uuid4().hex[:16]
+    while getattr(thread, "do_run", True):
+        if dask_client.status == "running":
+            now_time = time.time()
+            tasks = dask_client.get_task_stream(last_time, now_time)
+            if (
+                (len(tasks) >= n_tasks_min)
+                or getattr(thread, "force_log", False)
+                and (len(tasks) >= 1)
+            ):
+                thread.force_log = False
+                last_time = now_time
+                # Make type json serializable
+                [
+                    task.update({"type": base64.b64encode(task["type"]).decode()})
+                    for task in tasks
+                ]
+                log_message = {
+                    "datetime": str(datetime.datetime.now(pytz.utc)),
+                    "status": dask_client.status,
+                    "client_id": str(id(dask_client)),
+                    "tasks": tasks,
+                }
+                if filemode == "w":
+                    unique_id = uuid.uuid4().hex[:16]
+                with open(f"{log_path}tasks_{unique_id}.jsonl", filemode) as file:
+                    file.write(json.dumps(log_message))
+                    file.write("\n")
+        time.sleep(time_interval)
 
 
 def read_tasks_raw(log_path):
