@@ -2,6 +2,7 @@ import threading
 import time
 import datetime
 import json
+import yaml
 import pytz
 import pathlib
 import uuid
@@ -40,6 +41,7 @@ def dask_logger_config(
     n_tasks_min=1,
     filemode="a",
     additional_info=None,
+    config_path=None,
 ):
     """
     Configure the dask logger to your liking.
@@ -99,6 +101,8 @@ def dask_logger_config(
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
+        config_logger(dask_client, log_path, config_path)
+
         dask_client.versions_logger = threading.Thread(
             target=versions_logger, args=(dask_client, log_path)
         )
@@ -123,6 +127,24 @@ def dask_logger_config(
         return dask_client
 
     return dask_logger
+
+
+def config_logger(dask_client, log_path, config_path=None):
+    if config_path is None:
+        config_path = f"{pathlib.Path.home()}/.config/dask/"
+    configs = dict()
+    for filename in glob.glob(config_path + "*.yaml"):
+        with open(filename) as file:
+            configs[filename.split("/")[-1]] = yaml.load(file, yaml.SafeLoader)
+    log_message = {
+        "datetime": str(datetime.datetime.now(pytz.utc)),
+        "status": dask_client.status,
+        "client_id": str(id(dask_client)),
+        "configs": configs,
+    }
+    unique_id = uuid.uuid4().hex[:16]
+    with open(f"{log_path}configs_{unique_id}.json", "w") as file:
+        json.dump(log_message, file)
 
 
 def versions_logger(dask_client, log_path, additional_info=None):
