@@ -99,23 +99,9 @@ def dask_logger_config(
     def dask_logger(dask_client):
         pathlib.Path(log_path).mkdir(parents=True, exist_ok=True)
 
-        def versions_logger():
-            while dask_client.status != "running":
-                time.sleep(1)
-            log_message = {
-                "datetime": str(datetime.datetime.now(pytz.utc)),
-                "status": dask_client.status,
-                "client_id": str(id(dask_client)),
-                "versions": dask_client.get_versions(),
-            }
-            unique_id = uuid.uuid4().hex[:16]
-            if additional_info is not None:
-                log_message["versions"]["additional_info"] = additional_info
-            with open(f"{log_path}versions_{unique_id}.json", "w") as file:
-                file.write(json.dumps(log_message))
-                file.write("\n")
-
-        dask_client.versions_logger = threading.Thread(target=versions_logger)
+        dask_client.versions_logger = threading.Thread(
+            target=versions_logger, args=(dask_client, log_path)
+        )
         dask_client.versions_logger.start()
 
         def task_logger():
@@ -187,6 +173,22 @@ def dask_logger_config(
         return dask_client
 
     return dask_logger
+
+
+def versions_logger(dask_client, log_path, additional_info=None):
+    while dask_client.status != "running":
+        time.sleep(1)
+    log_message = {
+        "datetime": str(datetime.datetime.now(pytz.utc)),
+        "status": dask_client.status,
+        "client_id": str(id(dask_client)),
+        "versions": dask_client.get_versions(),
+    }
+    unique_id = uuid.uuid4().hex[:16]
+    if additional_info is not None:
+        log_message["versions"]["additional_info"] = additional_info
+    with open(f"{log_path}versions_{unique_id}.json", "w") as file:
+        json.dump(log_message, file)
 
 
 def read_tasks_raw(log_path):
