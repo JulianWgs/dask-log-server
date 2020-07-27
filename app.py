@@ -30,6 +30,7 @@ options = [
     {"label": item, "value": item}
     for item in ["worker", "duration", "nbytes", "typename"]
 ]
+
 drop_cols = ["status", "thread", "type", "datetime", "client_id", "id"]
 task_columns = [
     {"name": item, "id": item}
@@ -52,8 +53,15 @@ task_columns = [
     if item not in drop_cols
 ]
 
+graph_cols = df.columns
+
+graph_col_options = [{"label": item, "value": item} for item in graph_cols]
+
 app.layout = html.Div(
     [
+        html.Div(
+          dcc.Dropdown("graph-columns", options=graph_col_options, multi=True, value=['start', 'stop', 'duration', 'n_workers', 'n_tasks', 'client_id'])
+        ),
         html.Div(
             [
                 dash_table.DataTable(
@@ -120,6 +128,19 @@ app.layout = html.Div(
         ),
     ]
 )
+
+
+@app.callback(
+    [
+        Output(component_id="graph-table", component_property="columns"),
+        Output(component_id="graph-table", component_property="data"),
+    ],
+    [
+        Input(component_id="graph-columns", component_property="value"),
+    ],
+)
+def update_graph_table(column_names):
+    return [{"name": i, "id": i} for i in column_names], df[column_names].to_dict("records")
 
 
 @app.callback(

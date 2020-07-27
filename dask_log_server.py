@@ -63,6 +63,8 @@ def dask_logger_config(
         The default is "a".
     additional_info: json serializable object
         Additional information which is written into the version log with the key "additional_info".
+    config_path: json serializable object
+        Dask config path (https://docs.dask.org/en/latest/configuration.html).
 
     Examples
     --------
@@ -104,7 +106,7 @@ def dask_logger_config(
         config_logger(dask_client, log_path, config_path)
 
         dask_client.versions_logger = threading.Thread(
-            target=versions_logger, args=(dask_client, log_path)
+            target=versions_logger, args=(dask_client, log_path, additional_info)
         )
         dask_client.versions_logger.start()
 
@@ -361,7 +363,7 @@ def _get_nested(dict_, keys):
     try:
         for key in keys:
             dict_ = dict_[key]
-    except (KeyError, IndexError):
+    except (KeyError, IndexError, TypeError):
         return None
     return dict_
 
@@ -521,7 +523,7 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
     )
 
 
-def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0):
+def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0.0):
     """
     See visualize for doc string.
     """
@@ -539,6 +541,8 @@ def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0):
             value: f"#{random.randint(0, 0xFFFFFF):06X}"
             for value in df_tasks[color].unique()
         }
+    else:
+        raise ValueError("Could not get type on how to color graph.")
 
     attributes = {"func": dict(), "data": dict()}
     for index, df_single_task in df_tasks.iterrows():
