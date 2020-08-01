@@ -421,23 +421,30 @@ def _get_unique_graph_ids(path):
 
 def _get_key_id_mapping(log_path, unique_graph_ids):
     key_to_id = (
-        db.from_sequence(unique_graph_ids)
+        _read_dask_graphs(log_path, unique_graph_ids)
         .map(
-            lambda graph_id: (
-                graph_id,
-                tuple(
-                    distributed.protocol.deserialize(
-                        *pickle.load(
-                            open(log_path + "/graph_" + graph_id + ".dsk", "rb")
-                        )
-                    ).keys()
-                ),
-            )
+            lambda graph_id_dask_graph: (
+                graph_id_dask_graph[0],
+                tuple(graph_id_dask_graph[1].keys()),
+            ),
         )
         .map(_flatten_tuple, 1, [0])
         .flatten()
     )
     return dict(key_to_id.compute())
+
+
+def _read_dask_graphs(log_path, unique_graph_ids):
+    """Return a list of tuple with (graph_id, dask_graph)"""
+    dask_graphs = db.from_sequence(unique_graph_ids).map(
+        lambda graph_id: (
+            graph_id,
+            distributed.protocol.deserialize(
+                *pickle.load(open(log_path + "/graph_" + graph_id + ".dsk", "rb"))
+            ),
+        )
+    )
+    return dask_graphs
 
 
 def _flatten_tuple(nested_tuple, tuple_index, single_indices):
