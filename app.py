@@ -12,6 +12,7 @@ import dash_table
 import pandas as pd
 import distributed
 import dask
+import dask.dot
 
 import dask_log_server
 
@@ -165,9 +166,12 @@ def load_graph(selected_rows, color, label):
     attributes = dask_log_server._get_dsk_attributes(
         dsk, df_tasks, label=label, color=color,
     )
-    data = dask.dot.to_graphviz(
-        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
-    ).pipe(format="png")
+    try:
+        data = dask.dot.to_graphviz(
+            dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
+        ).pipe(format="png")
+    except RuntimeError:
+        data = b""
     encoded_image = base64.b64encode(data).decode()
     return "data:image/png;base64,{}".format(encoded_image)
 
