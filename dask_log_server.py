@@ -18,7 +18,7 @@ import numpy as np
 import pandas as pd
 import distributed
 import dask
-import dask.dot
+# import dask.dot
 import dask.dataframe as dd
 import dask.bag as db
 
