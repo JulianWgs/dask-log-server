@@ -13,14 +13,21 @@ import ast
 import glob
 import filecmp
 import functools
+import logging
 
 import numpy as np
 import pandas as pd
 import distributed
 import dask
+
 # import dask.dot
 import dask.dataframe as dd
 import dask.bag as db
+
+LOG_SCHMEMA_JSONL_SINGLE = (
+    '{"datetime": "%(asctime)s","user_name": "%(name)s", '
+    + '"type": "%(levelname)s","message": "%(message)s", "client_id": %client_id}'
+)
 
 
 def graph_logger_config(get, log_path):
@@ -42,6 +49,7 @@ def dask_logger_config(
     filemode="a",
     additional_info=None,
     config_path=None,
+    additional_logger_names=None,
 ):
     """
     Configure the dask logger to your liking.
@@ -65,6 +73,10 @@ def dask_logger_config(
         Additional information which is written into the version log with the key "additional_info".
     config_path: json serializable object
         Dask config path (https://docs.dask.org/en/latest/configuration.html).
+    additional_logger_names: list of str
+        List of logger names which will also be logged into the logging directory. The file format is jsonl. To get a
+        list of all available logger use `[logging.getLogger(name).name for name in logging.root.manager.loggerDict]`.
+        This is useful, when for example libraries like dask_ml log important information about model training.
 
     Examples
     --------
@@ -78,6 +90,7 @@ def dask_logger_config(
     ...     n_tasks_min=1,
     ...     filemode="w",
     ...     additional_info={"instance_type": "c5.large"},
+    ...     additional_logger_names=["dask_ml"],
     ... )
     >>> client = Client(
     ...     extensions=[logger]
@@ -123,6 +136,9 @@ def dask_logger_config(
         )
         dask_client.info_logger.do_run = True
         dask_client.info_logger.start()
+
+        if additional_logger_names:
+            logger_logger(id(dask_client), log_path, additional_logger_names)
 
         dask_client.get = graph_logger_config(dask_client.get, log_path=log_path)
 
@@ -216,6 +232,22 @@ def info_logger(dask_client, log_path, info_interval, filemode):
                 file.write(json.dumps(log_message))
                 file.write("\n")
         time.sleep(info_interval)
+
+
+def logger_logger(client_id, log_path, logger_names):
+    assert isinstance(client_id, int)
+    assert isinstance(logger_names, (list, tuple))
+    unique_id = uuid.uuid4().hex[:16]
+    log_formatter = logging.Formatter(
+        LOG_SCHMEMA_JSONL_SINGLE.replace("%client_id", str(client_id))
+    )
+    for logger_name in logger_names:
+        logger = logging.getLogger(logger_name)
+        handler = logging.FileHandler(
+            f"{log_path}logger_{logger_name}_{unique_id}.jsonl"
+        )
+        handler.setFormatter(log_formatter)
+        logger.addHandler(handler)
 
 
 def read_tasks_raw(log_path):
