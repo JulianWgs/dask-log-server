@@ -357,6 +357,8 @@ def read_versions(log_path, list_of_keys=None):
     """
     Read version information from log path.
 
+    - Calculate number of available workers
+
     Parameters
     ----------
     log_path: str
@@ -366,7 +368,7 @@ def read_versions(log_path, list_of_keys=None):
 
     Examples
     --------
-    >>> # Logs must already exist for this to work
+    >>> # Logs must already exist for this to work. (n_workers not shown)
     >>> import dask_log_server
     >>> list_of_keys = [["scheduler", "host", "OS"], ["scheduler", "packages", "dask"], ["scheduler", "packages", "python"]]
     >>> dask_log_server.read_versions("logs", list_of_keys).compute()
@@ -387,6 +389,13 @@ def read_versions(log_path, list_of_keys=None):
         df_versions[column_name] = df_versions["versions"].map(
             functools.partial(_get_nested, keys=keys), meta=(column_name, str)
         )
+    df_versions["n_workers"] = (
+        dd.read_json("logs/info_*.jsonl")["info"]
+        .map(
+            functools.partial(_get_nested, keys=["workers"]), meta=("n_workers", object)
+        )
+        .map(len)
+    )
     return df_versions
 
 
