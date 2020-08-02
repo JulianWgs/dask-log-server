@@ -322,7 +322,7 @@ def read_graphs(df_tasks):
             df_tasks_group["client_id"].min(),
             df_tasks_group["func_name"]
             .unique()
-            .map(np.sort)
+            .map(np.sort, meta=pd.Series(dtype=object))
             .str.join(",")
             .rename("func_names"),
         ],
