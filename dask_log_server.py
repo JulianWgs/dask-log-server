@@ -325,11 +325,11 @@ def read_everything(log_path):
     """Read all logging data from logging directory."""
 
     df_tasks = read_tasks(log_path)
-    df_graph = read_graphs(df_tasks)
+    df_graphs = read_graphs(df_tasks)
     df_versions = read_versions(log_path)
     df_client = read_client(df_tasks, df_versions)
 
-    return df_tasks, df_graph, df_client
+    return df_tasks, df_graphs, df_client
 
 
 def read_client(df_tasks, df_versions):
@@ -337,7 +337,7 @@ def read_client(df_tasks, df_versions):
     df_tasks_group = df_tasks.groupby("client_id")
     df_starts = df_tasks_group["start"].min()
     df_stops = df_tasks_group["stop"].max()
-    df_client = dd.concat(
+    df_clients = dd.concat(
         [
             df_starts,
             df_stops,
@@ -349,14 +349,14 @@ def read_client(df_tasks, df_versions):
         axis=1,
         ignore_unknown_divisions=True,
     )
-    df_client = df_client.merge(
+    df_clients = df_clients.merge(
         df_versions.drop(columns=["datetime", "status", "versions"]).rename(
             columns={"n_workers": "n_available_worker"}
         ),
         left_index=True,
         right_on="client_id",
     )
-    return df_client
+    return df_clients
 
 
 def read_graphs(df_tasks):
@@ -365,7 +365,7 @@ def read_graphs(df_tasks):
     df_tasks_group = df_tasks.groupby("id")
     df_starts = df_tasks_group["start"].min()
     df_stops = df_tasks_group["stop"].max()
-    df_graph = dd.concat(
+    df_graphs = dd.concat(
         [
             df_starts,
             df_stops,
@@ -383,7 +383,7 @@ def read_graphs(df_tasks):
         ignore_unknown_divisions=True,
     )
 
-    return df_graph
+    return df_graphs
 
 
 def _func_name(label):
@@ -398,7 +398,6 @@ def read_tasks(log_path):
     df_tasks["id"] = df_tasks["key"].map(
         {str(key): value for key, value in key_id_mapping.items()}
     )
-    # df_tasks = df_tasks.merge(df_versions[["client_id", "versions"]], on="client_id")
     df_tasks["duration"] = (df_tasks["stop"] - df_tasks["start"]).dt.total_seconds()
 
     return df_tasks
