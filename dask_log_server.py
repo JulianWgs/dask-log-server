@@ -573,7 +573,9 @@ def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0.0):
     elif pd.api.types.is_numeric_dtype(df_tasks[color]):
         color_type = "float"
         max_color_value = df_tasks[color].max()
-    elif pd.api.types.is_string_dtype(df_tasks[color]):
+    elif pd.api.types.is_string_dtype(
+        df_tasks[color]
+    ) or pd.api.types.is_categorical_dtype(df_tasks[color]):
         color_type = "category"
         random.seed(10)
         unique_colors = {
