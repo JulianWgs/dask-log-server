@@ -308,6 +308,33 @@ def read_tasks_raw(log_path):
     return df_tasks
 
 
+def read_client(df_tasks, df_versions):
+    """Read per client information."""
+    df_tasks_group = df_tasks.groupby("client_id")
+    df_starts = df_tasks_group["start"].min()
+    df_stops = df_tasks_group["stop"].max()
+    df_client = dd.concat(
+        [
+            df_starts,
+            df_stops,
+            (df_stops - df_starts).rename("duration"),
+            df_tasks_group["worker"].nunique().rename("n_used_workers"),
+            df_tasks_group["id"].nunique().rename("n_graphs"),
+            df_tasks_group["status"].count().rename("n_tasks"),
+        ],
+        axis=1,
+        ignore_unknown_divisions=True,
+    )
+    df_client = df_client.merge(
+        df_versions.drop(columns=["datetime", "status", "versions"]).rename(
+            columns={"n_workers": "n_available_worker"}
+        ),
+        left_index=True,
+        right_on="client_id",
+    )
+    return df_client
+
+
 def read_graphs(df_tasks):
     df_tasks["func_name"] = df_tasks["key"].map(dask.dot.label).map(_func_name)
     df_tasks.groupby("id")
