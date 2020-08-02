@@ -24,7 +24,7 @@ external_stylesheets = ["https://codepen.io/chriddyp/pen/bWLwgP.css"]
 
 app = dash.Dash(__name__, external_stylesheets=external_stylesheets)
 
-df = pd.read_parquet(os.path.join(log_path, "graph.parquet"))
+df = pd.read_parquet(os.path.join(log_path, "graphs.parquet"))
 df_tasks = pd.read_parquet(os.path.join(log_path, "tasks.parquet"))
 
 options = [

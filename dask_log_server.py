@@ -308,6 +308,30 @@ def read_tasks_raw(log_path):
     return df_tasks
 
 
+def write_everything(log_path):
+    """Read all logging data and write it as parquet."""
+    df_tasks, df_graphs, df_clients = read_everything(log_path)
+
+    dask.compute(
+        [
+            df_tasks.to_parquet(log_path + "/tasks.parquet", compute=False),
+            df_graphs.to_parquet(log_path + "/graphs.parquet", compute=False),
+            df_clients.to_parquet(log_path + "/clients.parquet", compute=False),
+        ]
+    )
+
+
+def read_everything(log_path):
+    """Read all logging data from logging directory."""
+
+    df_tasks = read_tasks(log_path)
+    df_graph = read_graphs(df_tasks)
+    df_versions = read_versions(log_path)
+    df_client = read_client(df_tasks, df_versions)
+
+    return df_tasks, df_graph, df_client
+
+
 def read_client(df_tasks, df_versions):
     """Read per client information."""
     df_tasks_group = df_tasks.groupby("client_id")
