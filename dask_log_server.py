@@ -748,7 +748,7 @@ def _strip_instances(iterable, excluded_instances=None):
             return callable
 
 
-def visualize(dsk, df_tasks, label="", color="", current_time=0):
+def visualize(dsk, df_tasks, label="", color="", current_time=0, **kwargs):
     """
     Draw a dask graph enhanced by additional information.
 
@@ -788,7 +788,10 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0):
     )
 
     return dask.visualize(
-        dsk, data_attributes=attributes["data"], function_attributes=attributes["func"]
+        dsk,
+        data_attributes=attributes["data"],
+        function_attributes=attributes["func"],
+        **kwargs,
     )
 
 
