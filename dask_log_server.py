@@ -544,6 +544,59 @@ def get_max_concurrency(log_path, unique_graph_ids):
     )
 
 
+def get_time_deltas(dsk, df_tasks):
+    """
+    Calculate the maximum time between a node starting and all predecessor
+    nodes finishing computation.
+
+    With this function the critical paths of a dask task graph can be
+    visualized. Ideally all predecessor node finish their computation
+    at the same time. The critical path of the graph is responsible
+    for the computation time.
+
+    Parameters
+    ----------
+    dsk: dict
+        Dask task graph.
+    df_tasks: pd.DataFrame
+        DataFrame of the dask task stream data. "key" column is mandatory to
+        assign a row of the DataFrame to a node in the graph. "key" column
+        must be of type string even when key is a tuple, because otherwise
+        the type is not compatible with formats like parquet.
+
+    Returns
+    -------
+
+    """
+    # Convert dask task graph to nx
+    g = to_nx(dsk)
+    # Convert key to networkx node name and index df_tasks by that name
+    df_tasks.loc[df_tasks["action"] == "compute", "nx_name"] = df_tasks["key"].map(
+        lambda item: dask.dot.name((_to_tuple(item), "function"))
+    )
+    df_tasks_nx = df_tasks.loc[df_tasks["action"] == "compute"].set_index("nx_name")
+
+    max_time_deltas = dict()
+    # Iterate over all task nodes
+    for node in df_tasks_nx.index:
+        successor_start = df_tasks_nx.loc[node, "start"]
+        time_deltas = [pd.Timedelta(0)]
+        # Iterate over all data predecessors of task node
+        for data_predecessor in g.predecessors(node):
+            try:
+                # Get the task node predecessor of the data node
+                task_predecessor = next(g.predecessors(data_predecessor))
+                predecessor_stop = df_tasks_nx.loc[task_predecessor, "stop"]
+                # Calculate the time delta
+                time_delta = successor_start - predecessor_stop
+                time_deltas.append(time_delta)
+            except StopIteration:
+                pass
+        # Get the max time delta
+        max_time_deltas[node] = max(time_deltas).total_seconds()
+    return max_time_deltas
+
+
 def to_nx(dsk):
     """
     Code mainly identical to dask.dot.to_graphviz and kept compatible.
