@@ -784,7 +784,7 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0, **kwargs):
         the fill color of the nodes.
     """
     attributes = _get_dsk_attributes(
-        dsk, df_tasks, label=label, color=color, current_time=current_time
+        dsk, df_tasks, label_col=label, color_col=color, current_time=current_time
     )
 
     return dask.visualize(
@@ -795,25 +795,25 @@ def visualize(dsk, df_tasks, label="", color="", current_time=0, **kwargs):
     )
 
 
-def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0.0):
+def _get_dsk_attributes(dsk, df_tasks, label_col="", color_col="", current_time=0.0):
     """
     See visualize for doc string.
     """
     # Filter unnecessary tasks, dtype of key is str
     df_tasks = df_tasks[df_tasks["key"].isin([str(key) for key in dsk.keys()])]
-    if color == "progress" or color == "":
+    if color_col == "progress" or color_col == "":
         color_type = "progress"
-    elif pd.api.types.is_numeric_dtype(df_tasks[color]):
+    elif pd.api.types.is_numeric_dtype(df_tasks[color_col]):
         color_type = "float"
-        max_color_value = df_tasks[color].max()
+        max_color_value = df_tasks[color_col].max()
     elif pd.api.types.is_string_dtype(
-        df_tasks[color]
-    ) or pd.api.types.is_categorical_dtype(df_tasks[color]):
+        df_tasks[color_col]
+    ) or pd.api.types.is_categorical_dtype(df_tasks[color_col]):
         color_type = "category"
         random.seed(10)
         unique_colors = {
             value: f"#{random.randint(0, 0xFFFFFF):06X}"
-            for value in df_tasks[color].unique()
+            for value in df_tasks[color_col].unique()
         }
     else:
         raise ValueError("Could not get type on how to color graph.")
@@ -826,9 +826,11 @@ def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0.0):
             attribute_name = "data"
         key = df_single_task["key"]
         attributes[attribute_name][key] = {}
-        if label != "":
-            attributes[attribute_name][key]["label"] = str(df_single_task[label])
-        if color == "progress":
+        if label_col != "":
+            label = df_single_task[label_col]
+            if not pd.isna(label):
+                attributes[attribute_name][key]["label"] = str(label)
+        if color_col == "progress":
             if df_single_task["stop_delta"] < current_time:
                 attributes[attribute_name][key]["style"] = "filled"
                 attributes[attribute_name][key]["fillcolor"] = "blue"
@@ -836,15 +838,18 @@ def _get_dsk_attributes(dsk, df_tasks, label="", color="", current_time=0.0):
                 attributes[attribute_name][key]["style"] = "filled"
                 attributes[attribute_name][key]["fillcolor"] = "red"
         elif color_type == "float":
+            try:
+                grayscale = 100 - int(df_single_task[color_col] / max_color_value * 100)
+            except ValueError:
+                continue
             attributes[attribute_name][key]["style"] = "filled"
-            grayscale = 100 - int(df_single_task[color] / max_color_value * 100)
             attributes[attribute_name][key]["fillcolor"] = f"gray{grayscale}"
             if grayscale < 20:
                 attributes[attribute_name][key]["fontcolor"] = "white"
         elif color_type == "category":
             attributes[attribute_name][key]["style"] = "filled"
             attributes[attribute_name][key]["fillcolor"] = unique_colors[
-                df_single_task[color]
+                df_single_task[color_col]
             ]
 
     attributes["data"] = {
