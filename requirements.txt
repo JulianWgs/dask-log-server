@@ -1,6 +1,6 @@
 numpy
 pandas
-dask
+dask[dataframe]
 distributed
 networkx
 graphviz
