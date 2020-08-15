@@ -1,7 +1,7 @@
 import datetime
 import pytest
 import pandas as pd
-import dask_log_server
+from dask_log_server.visualize import _get_dsk_attributes
 
 
 def test_get_dsk_attributes_float_color():
@@ -14,7 +14,7 @@ def test_get_dsk_attributes_float_color():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, color_col="color"
     )
     dsk_attributes_test = {
@@ -36,7 +36,7 @@ def test_get_dsk_attributes_progress_color():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, color_col="progress", current_time=4,
     )
     dsk_attributes_test = {
@@ -56,7 +56,7 @@ def test_get_dsk_attributes_category_color():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, color_col="color"
     )
     dsk_attributes_test = {
@@ -73,7 +73,7 @@ def test_get_dsk_attributes_labels():
 
     df_tasks = pd.DataFrame([{"key": "A", "action": "compute", "label": "label"},])
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, label_col="label"
     )
     dsk_attributes_test = {
@@ -94,7 +94,7 @@ def test_get_dsk_attributes_na_categorical_color():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, color_col="color",
     )
     dsk_attributes_test = {
@@ -116,7 +116,7 @@ def test_get_dsk_attributes_na_float_color():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, color_col="color",
     )
     dsk_attributes_test = {
@@ -138,7 +138,7 @@ def test_get_dsk_attributes_na_label():
         ]
     )
 
-    dsk_attributes = dask_log_server._get_dsk_attributes(
+    dsk_attributes = _get_dsk_attributes(
         dsk, df_tasks, label_col="label",
     )
     dsk_attributes_test = {
@@ -157,6 +157,6 @@ def test_get_dsk_attributes_wrong_color_dtype():
     )
 
     with pytest.raises(ValueError):
-        dask_log_server._get_dsk_attributes(
+        _get_dsk_attributes(
             dsk, df_tasks, color_col="color",
         )
