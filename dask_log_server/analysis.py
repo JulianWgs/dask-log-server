@@ -25,5 +25,3 @@ def get_actual_concurrency(df_tasks):
         "concurrency"
     ].cumsum()
     return df_concurrency
-
-

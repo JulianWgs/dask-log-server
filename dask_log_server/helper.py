@@ -44,7 +44,7 @@ def _strip_instances(iterable, excluded_instances=None):
             full_name = iterable.__module__ + "." + iterable.__name__
         except:
             full_name = (
-                    iterable.__class__.__module__ + "." + iterable.__class__.__name__
+                iterable.__class__.__module__ + "." + iterable.__class__.__name__
             )
         if full_name in excluded_instances:
             return iterable

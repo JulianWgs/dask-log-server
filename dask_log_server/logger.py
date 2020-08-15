@@ -9,15 +9,16 @@ import threading
 import time
 import uuid
 
-import distributed
 import pytz
 import yaml
+
+import distributed
 
 from .helper import _strip_instances
 
 LOG_SCHMEMA_JSONL_SINGLE = (
-        '{"datetime": "%(asctime)s","user_name": "%(name)s", '
-        + '"type": "%(levelname)s","message": "%(message)s", "client_id": %client_id}'
+    '{"datetime": "%(asctime)s","user_name": "%(name)s", '
+    + '"type": "%(levelname)s","message": "%(message)s", "client_id": %client_id}'
 )
 
 
@@ -33,14 +34,14 @@ def graph_logger_config(get, log_path):
 
 
 def dask_logger_config(
-        time_interval=60.0,
-        info_interval=1.0,
-        log_path="logs/",
-        n_tasks_min=1,
-        filemode="a",
-        additional_info=None,
-        config_path=None,
-        additional_logger_names=None,
+    time_interval=60.0,
+    info_interval=1.0,
+    log_path="logs/",
+    n_tasks_min=1,
+    filemode="a",
+    additional_info=None,
+    config_path=None,
+    additional_logger_names=None,
 ):
     """
     Configure the dask logger to your liking.
@@ -181,9 +182,9 @@ def task_logger(dask_client, log_path, time_interval, n_tasks_min, filemode):
             now_time = time.time()
             tasks = dask_client.get_task_stream(last_time, now_time)
             if (
-                    (len(tasks) >= n_tasks_min)
-                    or getattr(thread, "force_log", False)
-                    and (len(tasks) >= 1)
+                (len(tasks) >= n_tasks_min)
+                or getattr(thread, "force_log", False)
+                and (len(tasks) >= 1)
             ):
                 thread.force_log = False
                 last_time = now_time

@@ -1,8 +1,9 @@
 import random
-import pandas as pd
-import dask
 
-from . helper import _to_tuple
+import dask
+import pandas as pd
+
+from .helper import _to_tuple
 
 
 def visualize(dsk, df_tasks, label="", color="", current_time=0, **kwargs):
@@ -64,7 +65,7 @@ def _get_dsk_attributes(dsk, df_tasks, label_col="", color_col="", current_time=
         color_type = "float"
         max_color_value = df_tasks[color_col].max()
     elif pd.api.types.is_string_dtype(
-            df_tasks[color_col]
+        df_tasks[color_col]
     ) or pd.api.types.is_categorical_dtype(df_tasks[color_col]):
         color_type = "category"
         random.seed(10)

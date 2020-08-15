@@ -1,17 +1,19 @@
-import glob
 import filecmp
-import json
 import functools
-import pandas as pd
-import numpy as np
-import dask
-import dask.dot
-import dask.bag as db
-import dask.dataframe as dd
-import distributed
+import glob
+import json
 import pickle
 
-from . helper import _flatten_dict, _flatten_tuple, _func_name, _get_nested
+import dask
+import dask.bag as db
+import dask.dataframe as dd
+import dask.dot
+import numpy as np
+import pandas as pd
+
+import distributed
+
+from .helper import _flatten_dict, _flatten_tuple, _func_name, _get_nested
 
 
 def write_everything(log_path):
@@ -58,13 +60,13 @@ def read_tasks_raw(log_path):
     """
     df_tasks = (
         db.read_text(log_path + "/task*.jsonl")
-            .map(str.split, "\n")
-            .flatten()
-            .filter(lambda item: item != "")
-            .map(json.loads)
-            .map(_flatten_dict, "tasks", ["datetime", "client_id"])
-            .flatten()
-            .map(
+        .map(str.split, "\n")
+        .flatten()
+        .filter(lambda item: item != "")
+        .map(json.loads)
+        .map(_flatten_dict, "tasks", ["datetime", "client_id"])
+        .flatten()
+        .map(
             _flatten_dict,
             "startstops",
             [
@@ -79,8 +81,8 @@ def read_tasks_raw(log_path):
                 "client_id",
             ],
         )
-            .flatten()
-            .to_dataframe(
+        .flatten()
+        .to_dataframe(
             {
                 "action": str,
                 "start": "float64",
@@ -122,14 +124,14 @@ def read_graphs(df_tasks):
             df_tasks_group["status"].count().rename("n_tasks"),
             df_tasks_group["client_id"].min(),
             df_tasks_group["func_name"]
-                .unique()
-                .map(np.sort, meta=pd.Series(dtype=object))
-                .str.join(",")
-                .rename("func_names"),
+            .unique()
+            .map(np.sort, meta=pd.Series(dtype=object))
+            .str.join(",")
+            .rename("func_names"),
         ],
         axis=1,
         ignore_unknown_divisions=True,
-                )
+    )
 
     return df_graphs
 
@@ -172,10 +174,10 @@ def read_versions(log_path, list_of_keys=None):
         )
     df_versions["n_workers"] = (
         dd.read_json("logs/info_*.jsonl")["info"]
-            .map(
+        .map(
             functools.partial(_get_nested, keys=["workers"]), meta=("n_workers", object)
         )
-            .map(len)
+        .map(len)
     )
     return df_versions
 
@@ -242,14 +244,14 @@ def _get_unique_graph_ids(path):
 def _get_key_id_mapping(log_path, unique_graph_ids):
     key_to_id = (
         _read_dask_graphs(log_path, unique_graph_ids)
-            .map(
+        .map(
             lambda graph_id_dask_graph: (
                 graph_id_dask_graph[0],
                 tuple(graph_id_dask_graph[1].keys()),
             ),
         )
-            .map(_flatten_tuple, 1, [0])
-            .flatten()
+        .map(_flatten_tuple, 1, [0])
+        .flatten()
     )
     return dict(key_to_id.compute())
 
@@ -257,11 +259,12 @@ def _get_key_id_mapping(log_path, unique_graph_ids):
 def get_max_concurrency(log_path, unique_graph_ids):
     """Get maximum theoretical concurrency of task graphs."""
     # Import here, because of networkx dependency
-    from . graph import to_nx, max_dag_concurrency
+    from .graph import to_nx, max_dag_concurrency
+
     return (
         _read_dask_graphs(log_path, unique_graph_ids)
-            .map(lambda id_graph: (id_graph[0], to_nx(id_graph[1])))
-            .map(lambda id_graph: (id_graph[0], max_dag_concurrency(id_graph[1])))
-            .to_dataframe({"graph_id": str, "max_concurrency": int})
-            .set_index("graph_id", npartitions="auto")["max_concurrency"]
+        .map(lambda id_graph: (id_graph[0], to_nx(id_graph[1])))
+        .map(lambda id_graph: (id_graph[0], max_dag_concurrency(id_graph[1])))
+        .to_dataframe({"graph_id": str, "max_concurrency": int})
+        .set_index("graph_id", npartitions="auto")["max_concurrency"]
     )

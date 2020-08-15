@@ -1,9 +1,12 @@
 import uuid
-import pandas as pd
-import networkx as nx
+
 import dask
-from dask.dot import name, istask, key_split, get_dependencies, box_label, ishashable
-from . helper import _to_tuple
+import networkx as nx
+import pandas as pd
+from dask.dot import (box_label, get_dependencies, ishashable, istask,
+                      key_split, name)
+
+from .helper import _to_tuple
 
 
 def to_nx(dsk):
@@ -191,5 +194,3 @@ def _dag_concurrency(graph):
         concurrency_list.append(concurrency)
         visited.append(next_node)
     return visited, concurrency_list
-
-
